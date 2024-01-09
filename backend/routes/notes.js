@@ -1,16 +1,51 @@
 const express = require("express");
 const router = express.Router();
-const fetchuser = require("../midlewere/fetchuser");  
-const Notes = require("../Models/Notes");
+const fetchuser = require("../midlewere/fetchuser"); 
+const Note = require("../Models/Note");  // corrected typo in model import
+const { body, validationResult } = require("express-validator");
 
-router.get("/fetchallnotes", fetchuser, async (req, res) => {  
+// Get all notes (login required)
+router.get("/fetchallnotes", fetchuser, async (req, res) => {
   try {
-    const notes = await Notes.find({ user: req.user.id });  
+    const notes = await Note.find({ user: req.user.id }); 
     res.json(notes);
   } catch (error) {
     console.error(error.message);
     res.status(500).send("Server Error");
   }
 });
+
+// Add a new note (login required)
+router.post(
+  "/addnote",
+  fetchuser,
+  [
+    body("title", "Enter a valid title").isLength({ min: 3 }),
+    body("description", "Enter a valid description").isLength({ min: 5 }),
+  ],
+  async (req, res) => {
+    try {
+      const { title, description, tag } = req.body; 
+      // Check for validation errors
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+      // Create a new note
+      const note = new Note({
+        title,
+        description,
+        tag,
+        user: req.user.id,
+      });
+      // Save the note to the database
+      const noteSave = await note.save();
+      res.json(noteSave);
+    } catch (error) {
+      console.error(error.message);
+      res.status(500).send("Server Error");
+    }
+  }
+);
 
 module.exports = router;
